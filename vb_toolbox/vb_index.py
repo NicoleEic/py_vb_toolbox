@@ -19,6 +19,16 @@ n = None
 from multiprocessing import Pool, Value, Lock
 import multiprocessing
 
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    TextColumn,
+    TransferSpeedColumn,
+    TimeRemainingColumn,
+    Progress,
+    TaskID,
+)
+
 def init(a_counter, a_n):
     """Store total number of vertices and counter of vertices computed"""
     global counter
@@ -26,7 +36,7 @@ def init(a_counter, a_n):
     counter = a_counter
     n = a_n
 
-def vb_index_internal_loop(i0, iN, surf_faces, data, norm, print_progress=False):
+def vb_index_internal_loop(i0, iN, surf_faces, data, norm, print_progress=True):
     """Computes the Vogt-Bailey index of vertices in a given range
 
        Parameters
@@ -54,6 +64,7 @@ def vb_index_internal_loop(i0, iN, surf_faces, data, norm, print_progress=False)
     diff = iN - i0
     loc_result = np.zeros(diff)
 
+
     for idx in range(diff):
         #Calculate the real index
         i = idx + i0
@@ -77,13 +88,9 @@ def vb_index_internal_loop(i0, iN, surf_faces, data, norm, print_progress=False)
         loc_result[idx] = eigenvalues[1]/normalisation_factor
 
         if print_progress:
-
             global counter
-            global n
             with counter.get_lock():
                 counter.value += 1
-            if counter.value % 1000 == 0:
-                print("{}/{}".format(counter.value, n))
 
     return loc_result
 
@@ -130,6 +137,15 @@ def vb_index(surf_vertices, surf_faces, n_cpus, data, norm, cort_index, output_n
         iN = min(i0+dn, n_items)
         threads.append(pool.apply_async(vb_index_internal_loop, (i0, iN, surf_faces, data, norm)))
 
+    # Make a nice progess bar
+    with Progress(TextColumn("[bold blue]{task.description}", justify="right"),
+                  BarColumn(bar_width=None),
+                  "[progress.percentage]{task.percentage:>3.1f}%",
+                  "•",
+                  TimeRemainingColumn()) as progress:
+        task_id = progress.add_task("Searchlight", total=n_items)
+        while not progress.finished:
+            progress.update(task_id, completed=counter.value)
 
     # Gather the results from the threads we just spawned
     results = []
@@ -206,13 +222,9 @@ def vb_cluster_internal_loop(idx_cluster_0, idx_cluster_N, surf_faces, data, clu
         loc_result.append((val, vel))
 
         if print_progress:
-
             global counter
-            global n
             with counter.get_lock():
                 counter.value += 1
-            if counter.value % 1000 == 0:
-                print("{}/{}".format(counter.value, n))
 
     return loc_result
 
@@ -267,6 +279,15 @@ def vb_cluster(surf_vertices, surf_faces, n_cpus, data, cluster_index, norm, out
         iN = min(i0+dn, n_items)
         threads.append(pool.apply_async(vb_cluster_internal_loop, (i0, iN, surf_faces, data, cluster_index, norm)))
 
+    # Make a nice progess bar
+    with Progress(TextColumn("[bold blue]{task.description}", justify="right"),
+                  BarColumn(bar_width=None),
+                  "[progress.percentage]{task.percentage:>3.1f}%",
+                  "•",
+                  TimeRemainingColumn()) as progress:
+        task_id = progress.add_task("Cluster search", total=n_items)
+        while not progress.finished:
+            progress.update(task_id, completed=counter.value)
 
     # Gather the results from the threads we just spawned
     results = []
