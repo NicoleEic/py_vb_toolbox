@@ -24,7 +24,8 @@ setuptools.setup(
         "numpy",
         "scipy",
         "nibabel",
-        "multiprocess"
+        "multiprocess",
+        "rich"
     ],
     entry_points={
         'console_scripts':[
