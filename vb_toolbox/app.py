@@ -48,6 +48,9 @@ def create_parser():
                         number of jobs to be used. If abscent, one job per CPU
                         will be spawned""")
 
+    parser.add_argument('-pb', '--progress-bar', action='store_true',
+                        help="""Shows progess bar. Might slow down the calculations a little. Not useful when doing full-brain calculation.""")
+
     parser.add_argument('-n', '--norm', metavar='norm', type=str, nargs=1,
                         default=["geig"], help="""Laplacian normalization to be
                         used. Possibilities are "geig", "unnorm", "rw" and
@@ -106,7 +109,7 @@ def main():
         _, labels = io.open_gifti(args.mask[0])
         cort_index = np.array(labels, np.bool)
         Z = np.array(cort_index, dtype=np.int)
-        result = vb.vb_cluster(vertices, faces, n_cpus, cifti, Z, args.norm[0], args.output[0] + "." + args.norm[0], nib_surf)
+        result = vb.vb_cluster(vertices, faces, n_cpus, cifti, Z, args.norm[0], args.output[0] + "." + args.norm[0], nib_surf, args.progress_bar)
 
     elif args.clusters is None:
         print("Running searchlight analyses")
@@ -116,13 +119,13 @@ def main():
         # Read labels
         _, labels = io.open_gifti(args.mask[0])
         cort_index = np.array(labels, np.bool)
-        result = vb.vb_index(vertices, faces, n_cpus, cifti, args.norm[0], cort_index, args.output[0] + "." + args.norm[0], nib_surf)
+        result = vb.vb_index(vertices, faces, n_cpus, cifti, args.norm[0], cort_index, args.output[0] + "." + args.norm[0], nib_surf, args.progress_bar)
 
     else:
         print("Running ROI analyses")
         nib, Z = io.open_gifti(args.clusters[0])
         Z = np.array(Z, dtype=np.int)
-        result = vb.vb_cluster(vertices, faces, n_cpus, cifti, Z, args.norm[0], args.output[0] + "." + args.norm[0], nib_surf)
+        result = vb.vb_cluster(vertices, faces, n_cpus, cifti, Z, args.norm[0], args.output[0] + "." + args.norm[0], nib_surf, args.progress_bar)
 
 
 if __name__ == "__main__":

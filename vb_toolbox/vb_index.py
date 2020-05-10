@@ -94,7 +94,7 @@ def vb_index_internal_loop(i0, iN, surf_faces, data, norm, print_progress=True):
 
     return loc_result
 
-def vb_index(surf_vertices, surf_faces, n_cpus, data, norm, cort_index, output_name=None, nib_surf=None):
+def vb_index(surf_vertices, surf_faces, n_cpus, data, norm, cort_index, output_name=None, nib_surf=None, print_progress=False):
     """Computes the Vogt-Bailey index of vertices for the whole mesh
 
        Parameters
@@ -135,17 +135,18 @@ def vb_index(surf_vertices, surf_faces, n_cpus, data, norm, cort_index, output_n
     threads = []
     for i0 in range(0, n_items, dn):
         iN = min(i0+dn, n_items)
-        threads.append(pool.apply_async(vb_index_internal_loop, (i0, iN, surf_faces, data, norm)))
+        threads.append(pool.apply_async(vb_index_internal_loop, (i0, iN, surf_faces, data, norm, print_progress)))
 
     # Make a nice progess bar
-    with Progress(TextColumn("[bold blue]{task.description}", justify="right"),
-                  BarColumn(bar_width=None),
-                  "[progress.percentage]{task.percentage:>3.1f}%",
-                  "•",
-                  TimeRemainingColumn()) as progress:
-        task_id = progress.add_task("Searchlight", total=n_items)
-        while not progress.finished:
-            progress.update(task_id, completed=counter.value)
+    if print_progress:
+        with Progress(TextColumn("[bold blue]{task.description}", justify="right"),
+                    BarColumn(bar_width=None),
+                    "[progress.percentage]{task.percentage:>3.1f}%",
+                    "•",
+                    TimeRemainingColumn()) as progress:
+            task_id = progress.add_task("Searchlight", total=n_items)
+            while not progress.finished:
+                progress.update(task_id, completed=counter.value)
 
     # Gather the results from the threads we just spawned
     results = []
