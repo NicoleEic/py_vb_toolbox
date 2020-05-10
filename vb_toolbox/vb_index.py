@@ -13,6 +13,8 @@ import scipy.linalg as spl
 import vb_toolbox.io as io
 import vb_toolbox.numerics as m
 
+import time
+
 counter = None
 n = None
 
@@ -64,7 +66,6 @@ def vb_index_internal_loop(i0, iN, surf_faces, data, norm, print_progress=True):
     diff = iN - i0
     loc_result = np.zeros(diff)
 
-
     for idx in range(diff):
         #Calculate the real index
         i = idx + i0
@@ -89,8 +90,10 @@ def vb_index_internal_loop(i0, iN, surf_faces, data, norm, print_progress=True):
 
         if print_progress:
             global counter
+            global n
             with counter.get_lock():
                 counter.value += 1
+            # print(counter.value, idx, diff)
 
     return loc_result
 
@@ -194,17 +197,22 @@ def vb_cluster_internal_loop(idx_cluster_0, idx_cluster_N, surf_faces, data, clu
                    Resulting VB index and eigenvectors of the clusters in range.
     """
 
+    global counter
 
     # Calculate how many vertices we will compute
     diff = idx_cluster_N - idx_cluster_0
     loc_result = []
     cluster_labels = np.unique(cluster_index)
 
+
     for idx in range(diff):
         #Calculate the real index
         i = idx + idx_cluster_0
 
         if(cluster_labels[i] == 0):
+            if print_progress:
+                with counter.get_lock():
+                    counter.value += 1
             loc_result.append(([], []))
             continue
         # Get neighborhood and its data
@@ -223,13 +231,14 @@ def vb_cluster_internal_loop(idx_cluster_0, idx_cluster_N, surf_faces, data, clu
         loc_result.append((val, vel))
 
         if print_progress:
-            global counter
             with counter.get_lock():
                 counter.value += 1
+            # print(counter.value, idx, diff)
+            # print(idx_cluster_0, idx_cluster_N)
 
     return loc_result
 
-def vb_cluster(surf_vertices, surf_faces, n_cpus, data, cluster_index, norm, output_name = None, nib_surf=None):
+def vb_cluster(surf_vertices, surf_faces, n_cpus, data, cluster_index, norm, output_name = None, nib_surf=None, print_progress=False):
     """Computes the clustered Vogt-Bailey index of vertices for the whole mesh
 
        Parameters
@@ -278,17 +287,20 @@ def vb_cluster(surf_vertices, surf_faces, n_cpus, data, cluster_index, norm, out
     threads = []
     for i0 in range(0, n_items, dn):
         iN = min(i0+dn, n_items)
-        threads.append(pool.apply_async(vb_cluster_internal_loop, (i0, iN, surf_faces, data, cluster_index, norm)))
+        threads.append(pool.apply_async(vb_cluster_internal_loop, (i0, iN, surf_faces, data, cluster_index, norm, print_progress)))
 
     # Make a nice progess bar
-    with Progress(TextColumn("[bold blue]{task.description}", justify="right"),
-                  BarColumn(bar_width=None),
-                  "[progress.percentage]{task.percentage:>3.1f}%",
-                  "•",
-                  TimeRemainingColumn()) as progress:
-        task_id = progress.add_task("Cluster search", total=n_items)
-        while not progress.finished:
-            progress.update(task_id, completed=counter.value)
+    if print_progress:
+        with Progress(TextColumn("[bold blue]{task.description}", justify="right"),
+                    BarColumn(bar_width=None),
+                    "[progress.percentage]{task.percentage:>3.1f}%",
+                    "•",
+                    TimeRemainingColumn()) as progress:
+            task_id = progress.add_task("Cluster search", total=n_items)
+            while not progress.finished:
+                progress.update(task_id, completed=counter.value)
+                # print(counter.value, n_items)
+                time.sleep(0.1)
 
     # Gather the results from the threads we just spawned
     results = []
